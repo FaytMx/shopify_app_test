@@ -31,7 +31,12 @@ app.prepare().then(() => {
     createShopifyAuth({
       apiKey: SHOPIFY_API_KEY,
       secret: SHOPIFY_API_SECRET_KEY,
-      scopes: ["read_products", "write_products"],
+      scopes: [
+        "read_products",
+        "write_products",
+        "write_script_tags",
+        "read_script_tags",
+      ],
       async afterAuth(ctx) {
         const { shop, accessToken } = ctx.session;
         ctx.redirect("https://" + shop + "/admin/apps");
@@ -40,6 +45,10 @@ app.prepare().then(() => {
   );
 
   server.use(verifyRequest());
+
+  //====================================================//
+  //    GET PRODUCTS ROUTER
+  //====================================================//
 
   router.get("/getProducts", verifyRequest(), async (ctx, res) => {
     const { shop, accessToken } = ctx.session;
@@ -58,6 +67,9 @@ app.prepare().then(() => {
     ctx.res.statusCode = 200;
   });
 
+  //====================================================//
+  //    DELETE PRODUCTS ROUTER
+  //====================================================//
   router.get("/deleteProduct", verifyRequest(), async (ctx, res) => {
     const { shop, accessToken } = ctx.session;
     const productID = ctx.query.id;
@@ -69,6 +81,75 @@ app.prepare().then(() => {
     });
 
     const getProducts = await axios
+      .delete(url, {
+        headers: shopifyHeaders(accessToken),
+      })
+      .then((response) => console.log(response))
+      .catch((error) => console.log(error));
+
+    ctx.res.statusCode = 200;
+  });
+
+  //====================================================//
+  //    CREATE SCRIPT TAGS
+  //====================================================//
+  router.get("/installScriptTags", verifyRequest(), async (ctx, res) => {
+    const { shop, accessToken } = ctx.session;
+    const url = `https://${shop}/admin/api/2020-10/script_tags.json`;
+    const src = "https://example.com/example.js";
+
+    let scriptTagExist = false;
+
+    const shopifyHeaders = (token) => ({
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    });
+
+    const scriptTagBody = JSON.stringify({
+      script_tag: {
+        event: "onload",
+        src,
+      },
+    });
+
+    const geScriptTags = await axios.get(url, {
+      headers: shopifyHeaders(accessToken),
+    });
+
+    geScriptTags.data.script_tags.map((script) => {
+      console.log(script);
+
+      if (script.src == src) {
+        scriptTagExist = true;
+      }
+    });
+
+    if (!scriptTagExist) {
+      await axios
+        .post(url, scriptTagBody, {
+          headers: shopifyHeaders(accessToken),
+        })
+        .then((response) => console.log(response))
+        .catch((error) => console.log(error));
+    }
+
+    ctx.res.statusCode = 200;
+  });
+
+  //====================================================//
+  //    DELETE SCRIPT TAG
+  //====================================================//
+  router.get("/uninstallScriptTag", verifyRequest(), async (ctx, res) => {
+    const { shop, accessToken } = ctx.session;
+    const scriptTagID = ctx.query.id;
+    const url = `https://${shop}/admin/api/2020-10/script_tags/${scriptTagID}.json`;
+
+    const shopifyHeaders = (token) => ({
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    });
+
+    await axios
       .delete(url, {
         headers: shopifyHeaders(accessToken),
       })
