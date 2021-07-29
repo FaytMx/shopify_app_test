@@ -36,7 +36,9 @@ const ProductList = (props) => {
         primaryAction={{
           content: "Delete",
           onAction: () => {
-            fetch(`/deleteProduct?id=${pid}`).then(response => console.log(response));
+            fetch(`/deleteProduct?id=${pid}`).then((response) =>
+              console.log(response)
+            );
             handleChange();
           },
         }}
@@ -60,7 +62,7 @@ const ProductList = (props) => {
           items={products}
           renderItem={(product) => {
             const { id, title, body_html } = product;
-            const url = product.image.src;
+            const url = product.image ? product.image.src : "";
             const media = <Thumbnail source={url} alt={title} />;
 
             return (

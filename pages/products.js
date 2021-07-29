@@ -1,6 +1,6 @@
 import { Card, Layout, Page } from "@shopify/polaris";
 import React from "react";
-import ProductList from "../components/ProductList";
+import ProductList from "../components/rest/ProductList";
 
 class Products extends React.Component {
 

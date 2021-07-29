@@ -1,7 +1,7 @@
 import React from 'react';
 import {Page, Layout} from '@shopify/polaris';
-import InstallScript from "../components/InstallScripts";
-import UninstallScript from "../components/UninstallScript";
+import InstallScript from "../components/rest/InstallScripts";
+import UninstallScript from "../components/rest/UninstallScript";
 
 
 class ScriptTags extends React.Component {
