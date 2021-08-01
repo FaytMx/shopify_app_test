@@ -1,65 +1,80 @@
 const axios = require("axios");
 
-const createDraftOrder= async(accessToken, shop, title, quantity,price) => {
-    const url = `https://${shop}/admin/api/2020-10/graphql.json`;
+const createDraftOrder = async (
+  accessToken,
+  shop,
+  items = [],
+  title = "",
+  quantity = 1,
+  price = 0
+) => {
+  const url = `https://${shop}/admin/api/2020-10/graphql.json`;
 
-    const CREATE_DRAFT_ORDER_QUERY = JSON.stringify({
-      query: `mutation {
-                draftOrderCreate(
-                    input: {
-                        lineItems: {
-                          title:"${title}",
-                          quantity: ${quantity},
-                          originalUnitPrice:${price}
-                        }
-                    }
-                ) {
-                draftOrder {
-                    id
-                }
-                userErrors {
-                    message
-                }
-            }
-          }`,
-    });
+  let variantsIDs = "";
+  console.log(items);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
-      },
-      body: CREATE_DRAFT_ORDER_QUERY,
-    });
+  if (items.length > 0) {
+    variantsIDs = items
+      .map((item) => {
+        return `{ variantId: "${item}" quantity: ${quantity}}`;
+      })
+      .join(",");
+  } else {
+    variantsIDs = `{ title: "${title}" quantity: ${quantity} originalUnitPrice: ${price}}`;
+  }
 
-    const responseJson = await response.json();
+  const CREATE_DRAFT_ORDER_QUERY = JSON.stringify({
+    query: `mutation {
+              draftOrderCreate(
+                  input: {
+                      lineItems: [${variantsIDs}]
+                  }
+              ) {
+              draftOrder {
+                  id
+              }
+              userErrors {
+                  message
+              }
+          }
+      }`,
+  });
 
-    const COMPLETE_DRAFT_ORDER_QUERY = JSON.stringify({
-      query: `mutation {
-                draftOrderComplete(
-                   id: "${responseJson.data.draftOrderCreate.draftOrder.id}"
-                ) {
-                draftOrder {
-                    id
-                }
-            }
-          }`,
-    });
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+    body: CREATE_DRAFT_ORDER_QUERY,
+  });
 
-    const completeDraftOrderResponse = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
-      },
-      body: COMPLETE_DRAFT_ORDER_QUERY,
-    });
+  const responseJson = await response.json();
 
-    const responseCompleteDraftOrderJson =
-      await completeDraftOrderResponse.json();
+  const COMPLETE_DRAFT_ORDER_QUERY = JSON.stringify({
+    query: `mutation {
+              draftOrderComplete(
+                  id: "${responseJson.data.draftOrderCreate.draftOrder.id}"
+              ) {
+              draftOrder {
+                  id
+              }
+          }
+      }`,
+  });
 
-    console.log(responseCompleteDraftOrderJson);
+  const completeDraftOrderResponse = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+    body: COMPLETE_DRAFT_ORDER_QUERY,
+  });
+
+  const responseCompleteDraftOrderJson =
+    await completeDraftOrderResponse.json();
+  console.log(responseCompleteDraftOrderJson);
 };
 
-module.exports={createDraftOrder};
+module.exports = { createDraftOrder };

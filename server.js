@@ -21,7 +21,12 @@ const dev = process.env.NODE_ENV !== "production";
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
-const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET_KEY } = process.env;
+const {
+  receiveWebhook,
+  registerWebhook,
+} = require("@shopify/koa-shopify-webhooks");
+
+const { SHOPIFY_API_KEY, SHOPIFY_API_SECRET_KEY, HOST } = process.env;
 
 const getSubscriptionUrl = require("./components/graphql/Subscription");
 const { getProducts, deleteProduct } = require("./server/products/products");
@@ -54,14 +59,37 @@ app.prepare().then(() => {
       ],
       async afterAuth(ctx) {
         const { shop, accessToken } = ctx.session;
+
+        const registerAppUninstallWebhook = await registerWebhook({
+          address: `${HOST}/webhooks/app/uninstall`,
+          topic: "APP_UNINSTALLED",
+          accessToken,
+          shop,
+          apiVersion: ApiVersion.October20,
+        });
+
+        if (registerAppUninstallWebhook.success) {
+          console.log("You have successfully installed a Webhook");
+        } else {
+          console.log(
+            "Failed webhook registration",
+            registerAppUninstallWebhook.result
+          );
+        }
+
         // await getSubscriptionUrl(ctx, accessToken, shop);
         ctx.redirect("https://" + shop + "/admin/apps");
       },
     })
   );
 
+  const webhook = receiveWebhook({ secret: SHOPIFY_API_SECRET_KEY });
+
+  router.post("/webhooks/app/uninstall", webhook, (ctx) => {
+    console.log(ctx.state.webhook);
+  });
+
   server.use(graphQLProxy({ version: ApiVersion.October20 }));
-  server.use(verifyRequest());
 
   //====================================================//
   //    GET PRODUCTS ROUTER
@@ -114,26 +142,37 @@ app.prepare().then(() => {
   //====================================================//
   //    createDraftOrder
   //====================================================//
-  router.get("/createDraftOrder", verifyRequest(), async (ctx, res) => {
+  router.get("/createDraftOrder", verifyRequest(), async (ctx, resp) => {
     const { shop, accessToken } = ctx.session;
-    const title = ctx.query.title;
-    const quantity = ctx.query.quantity;
-    const price = ctx.query.price;
+    const type = ctx.query.type;
 
-    await createDraftOrder(accessToken, shop, title, quantity, price);
+    if (type == "list") {
+      const items = ctx.query.items;
+      console.log(items);
+      await createDraftOrder(accessToken, shop, items);
+    } else {
+      const title = ctx.query.title;
+      const quantity = ctx.query.quantity;
+      const price = ctx.query.price;
 
+      await createDraftOrder(accessToken, shop, [], title, quantity, price);
+    }
+
+    ctx.res.statusCode = 200;
+  });
+
+  //======================================================//
+  //          SEND VERIFY REQUEST WITH ROUTER
+  //======================================================//
+
+  router.get("(.*)", verifyRequest(), async (ctx) => {
+    await handle(ctx.req, ctx.res);
+    ctx.respond = false;
     ctx.res.statusCode = 200;
   });
 
   server.use(router.routes());
   server.use(router.allowedMethods());
-
-  server.use(async (ctx) => {
-    await handle(ctx.req, ctx.res);
-    ctx.respond = false;
-    ctx.res.statusCode = 200;
-    return;
-  });
 
   server.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`);
