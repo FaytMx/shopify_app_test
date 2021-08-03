@@ -36,6 +36,8 @@ const {
 } = require("./server/scripTags/scripTags");
 const { createDraftOrder } = require("./server/orders/orders");
 
+const theme = require("./server/theme/updateTheme");
+
 app.prepare().then(() => {
   const server = new Koa();
   const router = new Router();
@@ -56,6 +58,8 @@ app.prepare().then(() => {
         "write_orders",
         "read_draft_orders",
         "write_draft_orders",
+        "read_themes",
+        "write_themes"
       ],
       async afterAuth(ctx) {
         const { shop, accessToken } = ctx.session;
@@ -76,6 +80,8 @@ app.prepare().then(() => {
             registerAppUninstallWebhook.result
           );
         }
+
+        await theme.updateThemeLiquid(accessToken,shop);
 
         // await getSubscriptionUrl(ctx, accessToken, shop);
         ctx.redirect("https://" + shop + "/admin/apps");
